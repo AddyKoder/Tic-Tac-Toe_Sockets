@@ -159,7 +159,7 @@ class Server:
 
                 try:
                     n = int(client.recv(4).decode('utf-8'))
-                except ConnectionResetError or ConnectionAbortedError:
+                except ConnectionResetError or ConnectionAbortedError or ValueError:
                     disconnect()
                     break
 
