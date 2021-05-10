@@ -41,7 +41,11 @@ def check_win(b):
             return 'O'
 
 
-# returns the position of the particular player in the game
+# returns the position of the game
+# '.' : game is going on
+# '-' : game has drawn
+# 'X' : X has won the game
+# 'O' : O has won the game
 def check_game_pos(b):
     if check_win(b):
         return check_win(b)
@@ -51,8 +55,17 @@ def check_game_pos(b):
 
     return '.'
 
-    # ----------------- ROOM class ----------------- #
+    # ----------------- SERVER CLASS ----------------- #
 
+
+# it continuously listens for client connection requests and adds them to
+# a room with another client
+
+# it pairs client based on the connection sequence
+# c1, c2 will be in room 1 and c3, c4 will be in room 2
+
+# it instantiates the ROOM class to create a room
+# which has a separate board and other variables
 
 class Server:
 
@@ -70,6 +83,8 @@ class Server:
 
         self.server.listen()
 
+    # listens for connection requests and add clients to the
+    # room by pairing them with another client
     def listen(self):
         while True:
             client, address = self.server.accept()
@@ -79,11 +94,16 @@ class Server:
             rooms.append(room())
             rooms[-1].get_clients(client, client2)
 
-    # ----------------- SERVER main ----------------- #
+    # ----------------- ROOM MAIN CLASS ----------------- #
 
 
+# This is th main class which creates a tic-tac-toe room for 2 clients
+# to play on
+# this can be instantiated multiple times to create multiple rooms
+# which is done by the server class
 class room:
 
+    # initializes the room variables
     def __init__(self):
 
         self.board = ['-', '-', '-',
@@ -94,6 +114,18 @@ class room:
         self.connections = []
         self.players = []
 
+    # takes 2 client objects and creates a room for them
+    # player pieces are assigned as first come first chance
+    # starts the handle_client method to handle each
+    # client separately
+    def get_clients(self, c1, c2):
+
+        c1.send('X'.encode('utf-8'))
+        Thread(target=self.handle_client, args=(c1, 'X')).start()
+
+        c2.send('O'.encode('utf-8'))
+        Thread(target=self.handle_client, args=(c2, 'O')).start()
+
     # return the piece(X,O) that a player will be assigned to.
     # def get_playerTag(self):
     #     if 'X' in self.players:
@@ -103,7 +135,10 @@ class room:
     #     else:
     #         return choice(['X', 'O'])
 
-    # used to update a local variable in the handle client method
+    # updates the game_situ variable which holds the position of
+    # a particular player in the game
+    # this variable is then sent to the client to tell them their
+    # position
     def update_game_situ(self, player):
         if self.position == player:
             return 'WON'
@@ -114,6 +149,7 @@ class room:
 
         return '.'
 
+    # resets the board variable of a room to default
     def reset_board(self):
 
         self.board = ['-', '-', '-',
@@ -133,26 +169,22 @@ class room:
     #             connections.append(client)
     #             players.append(player)
 
-    def get_clients(self, c1, c2):
-
-        c1.send('X'.encode('utf-8'))
-        Thread(target=self.handle_client, args=(c1, 'X')).start()
-
-        c2.send('O'.encode('utf-8'))
-        Thread(target=self.handle_client, args=(c2, 'O')).start()
-
-    # handles a single time, ran on a separate thread
+    # handles a single client at a time, always used with 2 clients only to
+    # create a room, this is the main method for the full server script
+    # it handles the clients, sends receives data and analyzes games
     def handle_client(self, client, player):
 
         # used to disconnect a client from the server
         def disconnect():
-
             if client in self.connections and player in self.players:
                 self.connections.remove(client)
                 self.players.remove(player)
             self.reset_board()
             self.chance, self.next_chance = 'X', 'O'
 
+        # takes a message argument
+        # it sends the message string to the client and handles
+        # the exceptions and closes the connection if the client is offline
         def send_message(message):
             try:
                 client.send(message.encode('utf-8'))
@@ -163,34 +195,61 @@ class room:
 
         connected = True
         game_situ = '.'
-        # the main game loop
+        # the main game loop. this is ran while the game is being
+        # played actively from both the 2 clients and sends-receives
+        # data iteratively to keep a connection between the two clients
+        # and maintain the room
         while connected and game_situ == '.':
+
+            # updating the games situation if is already default
             if self.position == '.':
                 self.position = check_game_pos(self.board)
                 game_situ = self.update_game_situ(player)
 
+            # performed only if the chance is of the current player
+            # performs a 3 cycle information exchange to make a chance
             if self.chance == player:
 
+                # 1 - sends the board and game situation to the client
                 send_message(f'{encrypt(self.board)}___{game_situ}')
 
+
+
+                # 2 - after the client has observed the board and made their
+                #     chance. it expects an reply by the client for their
+                #     chance. Received it updates the board variable of the room
                 try:
                     n = int(client.recv(4).decode('utf-8'))
                 except ConnectionResetError or ConnectionAbortedError or ValueError:
                     disconnect()
                     break
-
+                # updating the board
                 self.board[n - 1] = player
 
+
+
+                # 3 - again updates the game situation and player situation
+                #     and sends the board and game situation of the player to the player
+                #     finally swaps the chance, next_chance variable to continue the game
                 if self.position == '.':
                     self.position = check_game_pos(self.board)
                     game_situ = self.update_game_situ(player)
-
                 connected = send_message(f'{encrypt(self.board)}___{game_situ}')
 
                 self.chance, self.next_chance = self.next_chance, self.chance
+
+        # done after the main loop has done execution either by completing the
+        # game or by disconnection of a client
+        # it then returns the final board and game position to the player
         self.position = check_game_pos(self.board)
         game_situ = self.update_game_situ(player)
         send_message(f'{encrypt(self.board)}___{game_situ}')
 
 
-Server().listen()
+if __name__ == '__main__':
+
+    # calls the listen function of the Server class which
+    # starts the listening to the client connections and start
+    # making rooms
+
+    Server().listen()

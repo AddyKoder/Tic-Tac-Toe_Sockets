@@ -73,21 +73,26 @@ def main():
 
 class gui:
 
+    # initializing the variables
     def __init__(self):
         self.buttons = []
         self.methods = []
         self.window = Tk()
         self.f1, self.f2, self.f3 = Frame(self.window), Frame(self.window), Frame(self.window)
 
+    # starts the event loop / main loop
     def start(self):
 
         self.window.geometry('500x500')
-
         self.setup_gui()
         self.window.mainloop()
 
+    # setups the complete gui by placing buttons on the window
     def setup_gui(self):
 
+        # this method returns a method based on the argument passed
+        # used for the command which we have to give to the button
+        # widget. n is the number of the button(0-8)
         def get_methods(n):
             def on_click():
                 if board[n] == '-':
@@ -96,6 +101,11 @@ class gui:
 
             return on_click
 
+        # the button placing loop.
+        # in this loop we plot the 9x9 matrix of buttons
+        # using this loop. we create a button and assign a text equal
+        # to the loop variable +1 and a command by using the above
+        # get_methods function
         start, end = 0, 3
         for frame in (self.f1, self.f2, self.f3):
             for i in range(start, end):
@@ -104,26 +114,37 @@ class gui:
             start += 3
             end += 3
 
+        # packing all the buttons in the window
         for button in self.buttons:
             button.pack(side=LEFT, fill=BOTH, expand=1)
+        # packing all the frames in the window
         for frame in (self.f1, self.f2, self.f3):
             frame.pack(side=TOP, fill=BOTH, expand=1)
 
+    # this method is called after some changes are made to the board
+    # it updates the text of the buttons
     def update_gui(self):
         for ind, button in enumerate(self.buttons):
             button.configure(text=board[ind])
             button.update()
 
+    # enables the buttons for the user on the server request
     def enable_buttons(self):
         for button in self.buttons:
             button.configure(state=NORMAL)
             button.update()
 
+    # after the user had made their chance this method is called to
+    # disable the buttons
     def disable_buttons(self):
         for button in self.buttons:
             button.configure(state=DISABLED)
             button.update()
 
+    # given an argument result
+    # if result is other than '.'(game going on)
+    # it prints the result on the button 5 of the 9x9 matrix
+    # if the game is still going on it not does anything
     def show_result(self, result):
         global playing
         if result != '.':
@@ -132,6 +153,14 @@ class gui:
             playing = False
 
 
-my_gui = gui()
-Thread(target=main).start()
-my_gui.start()
+if __name__ == '__main__':
+
+    # instantiating the gui class to call the constructor
+    my_gui = gui()
+
+    # starting the main method thread so it can run concurrently
+    Thread(target=main).start()
+
+    # starting the gui to come into the even loop with the main
+    # method running concurrently
+    my_gui.start()
