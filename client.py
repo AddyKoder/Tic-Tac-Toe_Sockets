@@ -12,6 +12,8 @@ board = ['-', '-', '-',
 buttons = []
 conn = socket.socket()
 
+playing = True
+
 
 # ----------------- METHODS ----------------- #
 
@@ -53,7 +55,7 @@ def main():
     initialize_sockets()
     my_gui.window.title(f'Playing as :{conn.recv(64).decode("utf-8")}')
 
-    while True:
+    while playing:
         # receives the board from server and updates the local
         # board variable and the gui
         receive_board()
@@ -123,9 +125,11 @@ class gui:
             button.update()
 
     def show_result(self, result):
+        global playing
         if result != '.':
             self.buttons[4].configure(text=result)
             self.buttons[4].update()
+            playing = False
 
 
 my_gui = gui()
