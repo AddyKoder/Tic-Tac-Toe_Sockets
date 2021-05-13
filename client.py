@@ -49,10 +49,49 @@ def receive_board():
     my_gui.show_result(b[1])
 
 
+# def get_met(i, win):
+#     def main():
+#         conn.send(f'j___{i}'.encode('utf-8'))
+#         win.destroy()
+#
+#     return main
+#
+#
+# def crea(win):
+#     def temp():
+#         conn.send(f'c___{enter.get()}'.encode('utf-8'))
+#         win.destroy()
+#
+#     return temp
+
+
 # the main method which take cares of the connections with the server
 # and sends and receives data
 def main():
     initialize_sockets()
+
+    # rooms = conn.recv(1024).decode('utf-8').split('___')
+    # print(rooms)
+    # join_window = Tk()
+    #
+    # enter = Entry(join_window)
+    # enter.pack()
+    # create = Button(join_window, text='Create', command=crea(join_window))
+    # create.pack(fill=BOTH, expand=1)
+    #
+    # for i in rooms:
+    #     Button(join_window, text=i, command=get_met(i, join_window)).pack()
+    #
+    # join_window.mainloop()
+
+    conn.send('r___new_room'.encode('utf-8'))
+    reply = conn.recv(64).decode('utf-8')
+
+
+    if reply != 's':
+        print(reply)
+        exit()
+
     my_gui.window.title(f'Playing as :{conn.recv(64).decode("utf-8")}')
 
     while playing:
@@ -154,7 +193,6 @@ class gui:
 
 
 if __name__ == '__main__':
-
     # instantiating the gui class to call the constructor
     my_gui = gui()
 

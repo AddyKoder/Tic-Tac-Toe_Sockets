@@ -1,10 +1,11 @@
 import socket
 from threading import Thread
+from random import choice
 
 # ----------------- VARIABLES ----------------- #
 
-rooms = []
-
+rooms = {}
+random_rooms = []
 
 # ----------------- METHODS ----------------- #
 
@@ -86,13 +87,65 @@ class Server:
     # listens for connection requests and add clients to the
     # room by pairing them with another client
     def listen(self):
+        # this method is used to send a message to the client
+        # specifically designed to send error messages
+
+        def return_error(c, e):
+            try:
+                c.send(e.encode('utf-8'))
+            except ConnectionResetError or ConnectionAbortedError or ConnectionRefusedError:
+                return False
+
+        random_rooms.append(room())
+
         while True:
             client, address = self.server.accept()
 
-            client2, address2 = self.server.accept()
+            # client.send('___'.join(rooms.keys()).encode('utf-8'))
 
-            rooms.append(room())
-            rooms[-1].get_clients(client, client2)
+            # receives a join request from the client
+            # client either sends the create or join command for the room
+
+            message = client.recv(64).decode('utf-8').split('___')
+            command = message[0]
+            name = message[1]
+
+            # making the client join or create a room based on the command sent
+            if command == 'c':
+                if name not in rooms:
+                    rooms[name] = room()
+                    if rooms[name].get_cond():
+                        client.send('s'.encode('utf-8'))
+                        rooms[name].get_clients(client)
+
+                    else:
+                        return_error(client, 'Room full')
+                else:
+                    return_error(client, 'Room already existed')
+
+
+            elif command == 'j':
+                if name in rooms:
+                    if rooms[name].get_cond():
+                        client.send('s'.encode('utf-8'))
+                        rooms[name].get_clients(client)
+
+                    else:
+                        return_error(client, 'Room Full')
+                else:
+                    return_error(client, 'Room not found')
+
+            elif command == 'r':
+
+                if random_rooms[-1].get_cond():
+                    client.send('s'.encode('utf-8'))
+                    random_rooms[-1].get_clients(client)
+
+                else:
+                    random_rooms.append(room())
+                    client.send('s'.encode('utf-8'))
+                    random_rooms[-1].get_clients(client)
+
 
     # ----------------- ROOM MAIN CLASS ----------------- #
 
@@ -118,22 +171,34 @@ class room:
     # player pieces are assigned as first come first chance
     # starts the handle_client method to handle each
     # client separately
-    def get_clients(self, c1, c2):
+    def get_clients(self, c1):
+        if len(self.players) < 2:
 
-        c1.send('X'.encode('utf-8'))
-        Thread(target=self.handle_client, args=(c1, 'X')).start()
+            player = self.get_playerTag()
 
-        c2.send('O'.encode('utf-8'))
-        Thread(target=self.handle_client, args=(c2, 'O')).start()
+            c1.send(player.encode('utf-8'))
+
+            Thread(target=self.handle_client, args=(c1, player)).start()
+            self.players.append(player)
+
+            return True
+        else:
+            return False
+
+    def get_cond(self):
+        if len(self.players) < 2:
+            return True
+        return False
 
     # return the piece(X,O) that a player will be assigned to.
-    # def get_playerTag(self):
-    #     if 'X' in self.players:
-    #         return 'O'
-    #     elif 'O' in self.players:
-    #         return 'X'
-    #     else:
-    #         return choice(['X', 'O'])
+    def get_playerTag(self):
+        if len(self.players) < 2:
+            if 'X' in self.players:
+                return 'O'
+            elif 'O' in self.players:
+                return 'X'
+            else:
+                return choice(['X', 'O'])
 
     # updates the game_situ variable which holds the position of
     # a particular player in the game
@@ -199,6 +264,7 @@ class room:
         # played actively from both the 2 clients and sends-receives
         # data iteratively to keep a connection between the two clients
         # and maintain the room
+
         while connected and game_situ == '.':
 
             # updating the games situation if is already default
@@ -213,8 +279,6 @@ class room:
                 # 1 - sends the board and game situation to the client
                 send_message(f'{encrypt(self.board)}___{game_situ}')
 
-
-
                 # 2 - after the client has observed the board and made their
                 #     chance. it expects an reply by the client for their
                 #     chance. Received it updates the board variable of the room
@@ -225,8 +289,6 @@ class room:
                     break
                 # updating the board
                 self.board[n - 1] = player
-
-
 
                 # 3 - again updates the game situation and player situation
                 #     and sends the board and game situation of the player to the player
@@ -247,7 +309,6 @@ class room:
 
 
 if __name__ == '__main__':
-
     # calls the listen function of the Server class which
     # starts the listening to the client connections and start
     # making rooms
