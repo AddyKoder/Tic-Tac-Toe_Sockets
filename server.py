@@ -7,6 +7,7 @@ from random import choice
 rooms = {}
 random_rooms = []
 
+
 # ----------------- METHODS ----------------- #
 
 
@@ -99,6 +100,7 @@ class Server:
         random_rooms.append(room())
 
         while True:
+
             client, address = self.server.accept()
 
             # client.send('___'.join(rooms.keys()).encode('utf-8'))
@@ -116,7 +118,7 @@ class Server:
                     rooms[name] = room()
                     if rooms[name].get_cond():
                         client.send('s'.encode('utf-8'))
-                        rooms[name].get_clients(client)
+                        rooms[name].get_clients(client, 'c')
 
                     else:
                         return_error(client, 'Room full')
@@ -128,7 +130,7 @@ class Server:
                 if name in rooms:
                     if rooms[name].get_cond():
                         client.send('s'.encode('utf-8'))
-                        rooms[name].get_clients(client)
+                        rooms[name].get_clients(client, 'c')
 
                     else:
                         return_error(client, 'Room Full')
@@ -137,15 +139,17 @@ class Server:
 
             elif command == 'r':
 
+                if len(random_rooms) < 1:
+                    random_rooms.append(room())
+
                 if random_rooms[-1].get_cond():
                     client.send('s'.encode('utf-8'))
-                    random_rooms[-1].get_clients(client)
+                    random_rooms[-1].get_clients(client, 'r')
 
                 else:
                     random_rooms.append(room())
                     client.send('s'.encode('utf-8'))
-                    random_rooms[-1].get_clients(client)
-
+                    random_rooms[-1].get_clients(client, 'r')
 
     # ----------------- ROOM MAIN CLASS ----------------- #
 
@@ -171,14 +175,14 @@ class room:
     # player pieces are assigned as first come first chance
     # starts the handle_client method to handle each
     # client separately
-    def get_clients(self, c1):
+    def get_clients(self, c1, room_type):
         if len(self.players) < 2:
 
             player = self.get_playerTag()
 
             c1.send(player.encode('utf-8'))
 
-            Thread(target=self.handle_client, args=(c1, player)).start()
+            Thread(target=self.handle_client, args=(c1, player, room_type)).start()
             self.players.append(player)
 
             return True
@@ -237,7 +241,7 @@ class room:
     # handles a single client at a time, always used with 2 clients only to
     # create a room, this is the main method for the full server script
     # it handles the clients, sends receives data and analyzes games
-    def handle_client(self, client, player):
+    def handle_client(self, client, player, room_type):
 
         # used to disconnect a client from the server
         def disconnect():
@@ -306,6 +310,17 @@ class room:
         self.position = check_game_pos(self.board)
         game_situ = self.update_game_situ(player)
         send_message(f'{encrypt(self.board)}___{game_situ}')
+
+        # removing the room from the list/dictionary after the game is finished
+        if room_type == 'r':
+            if self in random_rooms:
+                random_rooms.remove(self)
+        elif room_type == 'c':
+            if self in rooms.values():
+                for key, val in rooms.items():
+                    if val == self:
+                        rooms.pop(key)
+                        break
 
 
 if __name__ == '__main__':
