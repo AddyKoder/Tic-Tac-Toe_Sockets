@@ -57,7 +57,7 @@ def receive_board():
 #     return main
 #
 #
-# def crea(win):
+# def create(win):
 #     def temp():
 #         conn.send(f'c___{enter.get()}'.encode('utf-8'))
 #         win.destroy()
@@ -70,13 +70,13 @@ def receive_board():
 def main():
     initialize_sockets()
 
-    # rooms = conn.recv(1024).decode('utf-8').split('___')
+    # rooms = conn.receive(1024).decode('utf-8').split('___')
     # print(rooms)
     # join_window = Tk()
     #
     # enter = Entry(join_window)
     # enter.pack()
-    # create = Button(join_window, text='Create', command=crea(join_window))
+    # create = Button(join_window, text='Create', command=create(join_window))
     # create.pack(fill=BOTH, expand=1)
     #
     # for i in rooms:
@@ -84,14 +84,22 @@ def main():
     #
     # join_window.mainloop()
 
-    conn.send('r___new_room'.encode('utf-8'))
-    reply = conn.recv(64).decode('utf-8')
+    # Sending a connections request to the server
+    # 'r___<anything>' : join a random room
+    # 'c___<room_name> : creates a room with name <room_name>
+    # 'j___<room_name> : sears for a room with name <room_name> and joins if is present
+    conn.send('j___new_room'.encode('utf-8'))
 
+    # receiving the reply of the server
+    # if can either be a 's' means successfully created/joined a room
+    # or an error message like ['room not found', 'room already existed', 'room full']
+    reply = conn.recv(64).decode('utf-8')
 
     if reply != 's':
         print(reply)
         exit()
 
+    # setting the title of the window as the piece of the playing player
     my_gui.window.title(f'Playing as :{conn.recv(64).decode("utf-8")}')
 
     while playing:

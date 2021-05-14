@@ -97,10 +97,10 @@ class Server:
             except ConnectionResetError or ConnectionAbortedError or ConnectionRefusedError:
                 return False
 
-        random_rooms.append(room())
-
+        # the infinite loop in which we will listen for connections
         while True:
 
+            # accepting the connection
             client, address = self.server.accept()
 
             # client.send('___'.join(rooms.keys()).encode('utf-8'))
@@ -108,27 +108,34 @@ class Server:
             # receives a join request from the client
             # client either sends the create or join command for the room
 
+            # first client will send a message requesting the type of connections they want to make
             message = client.recv(64).decode('utf-8').split('___')
+            # splitting the message in two parts
             command = message[0]
             name = message[1]
 
             # making the client join or create a room based on the command sent
+            # if clients requests to create a room
             if command == 'c':
+                # if that room does not already exists
                 if name not in rooms:
+                    # create the room
                     rooms[name] = room()
-                    if rooms[name].get_cond():
-                        client.send('s'.encode('utf-8'))
-                        rooms[name].get_clients(client, 'c')
+                    # making the client join the room
+                    client.send('s'.encode('utf-8'))
+                    rooms[name].get_clients(client, 'c')
 
-                    else:
-                        return_error(client, 'Room full')
                 else:
                     return_error(client, 'Room already existed')
 
 
+            # if client request to join a room
             elif command == 'j':
+                # if that room exists
                 if name in rooms:
+                    # if that room is not full
                     if rooms[name].get_cond():
+                        # making the client join the room
                         client.send('s'.encode('utf-8'))
                         rooms[name].get_clients(client, 'c')
 
@@ -137,15 +144,23 @@ class Server:
                 else:
                     return_error(client, 'Room not found')
 
+            # if client requested to pair with a random client
             elif command == 'r':
 
+                # if there is no rooms present
+                # then we will create a new room and then go ahead
                 if len(random_rooms) < 1:
                     random_rooms.append(room())
 
+                # if the latest room created is not full
+                # then we will add the client to that room
                 if random_rooms[-1].get_cond():
                     client.send('s'.encode('utf-8'))
                     random_rooms[-1].get_clients(client, 'r')
 
+                # if the latest room is also full
+                # then we will create a new room and then add the client
+                # to that room
                 else:
                     random_rooms.append(room())
                     client.send('s'.encode('utf-8'))
@@ -171,13 +186,13 @@ class room:
         self.connections = []
         self.players = []
 
-    # takes 2 client objects and creates a room for them
-    # player pieces are assigned as first come first chance
+    # takes a single client object at a time and then
+    # assigns a piece to them and as soon as two clients
+    # are present in the room. it starts the game
     # starts the handle_client method to handle each
     # client separately
     def get_clients(self, c1, room_type):
         if len(self.players) < 2:
-
             player = self.get_playerTag()
 
             c1.send(player.encode('utf-8'))
@@ -185,10 +200,9 @@ class room:
             Thread(target=self.handle_client, args=(c1, player, room_type)).start()
             self.players.append(player)
 
-            return True
-        else:
-            return False
-
+    # returns the condition of the current room
+    # returns True if the room has a space left for a client
+    # else it returns False if the room is already full
     def get_cond(self):
         if len(self.players) < 2:
             return True
